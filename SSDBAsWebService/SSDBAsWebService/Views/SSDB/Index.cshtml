@@ -1,0 +1,593 @@
+﻿@{
+    Layout = null;
+}
+@using StackExchange.Profiling;
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Index</title>
+
+    <link href="~/css/bootstrap.min.css" rel="stylesheet">
+    <link href="~/css/bootstrap-theme.min.css" rel="stylesheet" />
+    <script src="~/jquery-1.8.2.min.js"></script>
+    <script src="~/js/bootstrap.min.js"></script>
+    <link href="~/css/bootstrap-theme.min.css" rel="stylesheet" />
+    <script src="~/Viewer.js"></script>
+</head>
+<body>
+    <div id="control" class="jumbotron" style="height:30px; padding-top:5px;padding-bottom:0px;width:750px;margin-left:300px;">
+        @MiniProfiler.RenderIncludes()
+        <a id="view" href="#">View this Connection</a>&nbsp;&nbsp;
+        <a id="refresh" href="#">Refresh Connection</a>&nbsp;&nbsp;
+        <a id="delete" href="#">Delete Connection</a>&nbsp;&nbsp;
+        <a id="setedit" href="#">Edit Settings</a>&nbsp;&nbsp;
+        <a id="conn" href="#">Add a Connection</a>
+    </div>
+    <div id="content" class="jumbotron" style="padding-top:5px;padding-bottom:0px;width:750px;margin-left:300px; margin-top:50px; ">
+        <table id="info" class="table" style="width:700px;padding-top:5px;margin-bottom:0px;"></table>
+        <div id="list" style="width:400px; display:block; overflow:auto;margin-bottom:10px;"></div>
+        <div id="settings" style="width:400px; display:none; margin-bottom:10px;">
+            <h2>Settings</h2>
+            <h3>Theme</h3>
+            <input type="radio" class="color" id="plain" name="color" value="#FFFFFF" />Plain
+            <br />
+            <input type="radio" class="color" id="grey" name="color" value="#EEEEEE" checked="checked" />Grey
+            <br />
+            <h3>Keys List Size</h3>
+            <input type="radio" class="klsize" id="defsize" name="size" value="default" checked="checked" />Default(30)
+            <br />
+            <input type="radio" class="klsize" id="cusize" name="size" value="custom" />Custom
+            <br />
+            <br />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <input type="number" id="size" value="30" style="width:55px;" min="1" max="9999" disabled />
+            <br />
+            <br />
+
+        </div>
+        <div id="keys" style="width:400px; display:none; overflow:auto;margin-bottom:20px;">
+            <span style="height:40px;width:100px;">
+                <pre>SSDB-Server Name:</pre><br /><input type="text" id="sname" value="Default" />
+            </span>
+            <br />
+            <br />
+            <span style="height:40px;width:100px;">
+                <pre>SSDB-Server IP:</pre><br /><input type="text" id="ip" value="127.0.0.1" />
+            </span>
+            <br />
+            <br />
+            <span style="height:40px;width:100px;">
+                <pre>SSDB-Server Port:</pre><br /><input type="number" id="port" onchange="" value="8888" />
+            </span>
+            <br />
+            <br />
+            <a id="saveconn" href="#"><b>Add</b></a>
+            <br />
+            <br />
+            <div id="keyview" style="position:absolute; display:block;margin-left:410px; margin-top:-375px; height:100px;width:250px;">
+                <b>Select Connection</b>&nbsp;&nbsp;
+                <button id="default">See Info Details</button>
+                <br />
+                <div id="exclusive">
+                    <input class="ssdb" type="radio" name="sname" value="Default" checked />&nbsp;&nbsp;Default
+
+                    <br />
+                </div>
+            </div>
+        </div>
+        <div id="close">
+            <table id="field" class="table" style="width:800px; display:block; overflow:auto;"></table>
+        </div>
+    </div>
+    <script type="text/javascript">
+        $(window).ready(function () {
+
+        });
+    </script>
+    <script type="text/javascript">
+        $(window).ready(function () {
+            
+
+            var jdata = []; $f = $('#field'); $c = $('#close'); $l = $('#list'); $i = $('#info'); sindex = 0;
+            Viewer.default(jdata, showTable);
+            $('#saveconn').click(function (e) {
+                if ($(this).text() === "Add") {
+                    Viewer.addconnection($('#sname').val(),$('#ip').val(), $('#port').val(), jdata);
+                    onaddedConnection();
+                }
+                else {
+                    Viewer.delete();
+                }
+                
+                
+                //hideTable();
+                //alert(jdata);
+                //showTable(jdata);
+            });
+            $('#conn').click(function (e) {
+                $("#saveconn").text("Add");
+                $("#content").children().css('display', 'none');
+                $("#keys").css('display', 'block');
+
+            });
+            $('#view').click(function (e) {
+                $("#content").children().css('display', 'none');
+                $("#info").css('display', 'block');
+                $("#list").css('display', 'block');
+                if (viewmode == undefined || viewmode == 0) {
+                    Viewer.view(showKeys, ($("#size").attr("disabled")) ? 30 : parseInt($("#size").val()));
+                }
+                else {
+                    alert("Refresh this connection to get a current key list from Database");
+                }
+            });
+            $('#refresh').click(function (e) {
+                $("#content").children().css('display', 'none');
+                $("#info").css('display', 'block');
+                var jdata = null; viewmode = 0; smode = hmode = lmode = sosmode = 0;
+                hideTable();
+                Viewer.refresh(showTable, sindex);
+            });
+            $('#delete').click(function (e) {
+                $("#content").children().css('display', 'none');
+                $("#keys").css('display', 'block');
+                $("#saveconn").text("Delete");
+                Viewer.delete($('#ip').val(), $('#port').val(), $('#sname').val());
+            });
+            $('#setedit').click(function (e) {
+                $("#content").children().css('display', 'none');
+                $("#settings").css('display', 'block');
+                Viewer.delete($('#ip').val(), $('#port').val(), $('#sname').val());
+            });
+            $("#size").keydown(function (e) {
+
+
+                // Allow: backspace, delete, tab, escape, enter and .
+                if ($.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 190]) !== -1 ||
+                    // Allow: Ctrl+A
+                    (e.keyCode == 65 && e.ctrlKey === true) ||
+                    // Allow: home, end, left, right
+                    (e.keyCode >= 35 && e.keyCode <= 39)) {
+                    // let it happen, don't do anything
+
+                    return;
+                }
+                // Ensure that it is a number and stop the keypress
+                if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+
+
+                    e.preventDefault();
+                }
+
+                else if (this.value.length > 3 && parseInt(this.value) > 999) {
+
+
+                    alert("Maximum List size allowed is 999.");
+                    this.value = 9999;
+                }
+
+
+
+            });
+            $(".color").change(function (e) {
+                if (this.id === "grey") {
+                    $('.jumbotron').css('background-color', '#eee');
+                }
+                else if (this.id === "plain") {
+                    $('.jumbotron').css('background-color', '#fff');
+                }
+            });
+            $(".klsize").change(function (e) {
+                if (this.id === "defsize") {
+                    $("#size").attr("disabled", "disabled")
+                }
+                else if (this.id === "cusize") {
+                    $("#size").removeAttr("disabled")
+                }
+            });
+            $('.edit').click(function (e) {
+                
+
+            });
+            $('.delete').click(function (e) {
+
+
+            });
+            $('#default').click(function (e) {
+
+                            
+                               $("#content").children().css('display', 'none');
+                               $("#info").css('display', 'block');
+                               viewmode = 1; smode = hmode = lmode = sosmode = 1;
+                               hideTable();                               
+                               showTable(jdata[sindex],Viewer.ip[sindex], Viewer.port[sindex]);
+                            
+                  
+                    
+            });
+            
+        });
+        $args = []; $req = null; $itemsize = 20; $lastpagesize = null; var fieldsizepast = 0; var fieldsizeleft = 20; var viewmode; var pageno = 1; var fstitem = ""; var lstitem = ""; pagecount = 0; var firstviewmode; var smode, hmode, lmode, sosmode; $nameofkey = null; $typeofkey = null; var divheight = (parseInt((screen.height / 768) * 470)).toString();
+        var $cmd = [['set', 'setx', 'expire', 'ttl', 'setnx', 'get', 'getset', 'del', 'incr', 'exists', 'getbit', 'setbit', 'countbit', 'substr', 'strlen', 'keys', 'scan', 'rscan',
+'multi_set', 'multi_get', 'multi_del'], ['hset', 'hget', 'hdel', 'hincr', 'hexists', 'hsize', 'hlist', 'hrlist', 'hkeys', 'hgetall', 'hscan', 'hrscan', 'hclear', 'multi_hset', 'multi_hget',
+'multi_hdel'], ['zset', 'zget', 'zdel', 'zincr', 'zsize', 'zlist', 'zrlist', 'zexists', 'zkeys', 'zscan', 'zrscan', 'zrank', 'zrrank', 'zrange', 'zrrange', 'zclear', 'zcount', 'zsum', 'zavg', 'zremrangebyrank', 'zremrangebyscore', 'multi_zset', 'multi_zget', 'multi_zdel'], ['qsize', 'qlist', 'qrlist', 'qclear', 'qfront', 'qback', 'qget', 'qset', 'qrange', 'qslice', 'qpush', 'qpush_front', 'qpush_back', 'qpop',
+'qpop_front', 'qpop_back', 'qtrim_front', 'qtrim_back'], ['batch', 'exec', 'dbsize', 'info']]; $f = $('#field'); $c = $('#close'); $l = $('#list'); $i = $('#info');
+function showTable(Json_Data, ip, port) {
+    
+            if (Json_Data =='undefined'|| Json_Data == null) {
+
+                alert("invalid ip or port specified");
+           
+            }
+            else {       
+
+
+                $i.append('<tr><td>Connection</td><td>' + ip + ':' + port + '</td></tr>');
+                for (var i = 0; i < Json_Data.length - 1; i++) {
+
+                    if (i == 0) {
+
+                    }
+                    else {
+                        if (i === Json_Data.length - 2) {
+
+                            $i.append('<tr><td>' + Json_Data[i] + '</td><td><pre>' + Json_Data[i + 1] + '</pre></td><tr>');
+                            i = i + 1;
+                        }
+                        else {
+                            $i.append('<tr><td>' + Json_Data[i] + '</td><td>' + Json_Data[i + 1] + '</td></tr>');
+                            i = i + 1;
+                        }
+                    }
+                }
+            }
+        };
+        function showKeys(Json_Data) {
+            hideTable();
+            $i.append('<tr><td><a id="slist" href="#">StringList</a>&nbsp;&nbsp</td><td><a id="hlist" href="#">HashList</a>&nbsp;&nbsp;</td><td><a id="lkeys"  href="#">ListKeys</a>&nbsp;&nbsp;</td><td><a id="soslist" href="#">SortedSetList</a></td></tr>');
+            viewmode = 1;
+
+            $("#slist").click(function (e) {
+                changeColor("#slist");
+                if (smode == undefined || smode == 0) {
+                    removeList();
+                    $l.css('height', divheight + 'px');
+                    for (var i = 0; i < Json_Data.StringCount; i++) {
+                        //$l.append('<a class="keys" href="#">' + Json_Data.StringList[i] + '</a>&nbsp;&nbsp;');
+                        $l.append('' + (i + 1) + '. <a class="keys" href="#">' + Json_Data.StringList[i] + '</a><br>');
+                    }
+                    $("a.keys").click(function (e) {
+                        fstitem = ""; lstitem = "";
+                        var i = $("a.keys").index(this);
+                        $nameofkey = Json_Data.StringList[i];
+                        hideList();
+                        hideTags();
+                        Viewer.getkey(showListTable, 0, Json_Data.StringList[i], [$itemsize, fieldsizeleft, fieldsizepast], fstitem, lstitem);
+                    });
+                    sosmode = hmode = lmode = 0;
+                    smode = 1;
+                }
+            });
+
+            $("#hlist").click(function (e) {
+                changeColor("#hlist");
+                if (hmode == undefined || hmode == 0) {
+                    removeList();
+                    $l.css('height', divheight + 'px');
+                    for (var i = 0; i < Json_Data.HashCount; i++) {
+                        //$l.append('<a class="keys" href="#">' + Json_Data.HashList[i] + '</a>&nbsp;&nbsp;');
+                        $l.append('' + (i + 1) + '. <a class="keys" href="#">' + Json_Data.HashList[i] + '</a><br>');
+                    }
+                    $("a.keys").click(function (e) {
+                        fstitem = ""; lstitem = ""; pageno = 1;
+                        var i = $("a.keys").index(this);
+                        $nameofkey = Json_Data.HashList[i];
+                        hideList();
+                        hideTags();
+                        Viewer.getkey(showListTable, 1, Json_Data.HashList[i], [$itemsize, fieldsizeleft, fieldsizepast], fstitem, lstitem);
+                    });
+                    smode = lmode = sosmode = 0;
+                    hmode = 1;
+                }
+            });
+
+            $("#lkeys").click(function (e) {
+                changeColor("#lkeys");
+                if (lmode == undefined || lmode == 0) {
+                    removeList();
+                    $l.css('height', divheight + 'px');
+                    for (var i = 0; i < Json_Data.ListCount; i++) {
+                        $l.append('' + (i + 1) + '. <a class="keys" href="#">' + Json_Data.ListKeys[i] + '</a>&nbsp;&nbsp;');
+                    }
+                    $("a.keys").click(function (e) {
+                        fstitem = ""; lstitem = ""; pageno = 1;
+                        var i = $("a.keys").index(this);
+                        $nameofkey = Json_Data.ListKeys[i];
+                        hideList();
+                        hideTags();
+                        Viewer.getkey(showListTable, 2, Json_Data.ListKeys[i], [$itemsize, fieldsizeleft, fieldsizepast], fstitem, lstitem);
+                    });
+                    smode = hmode = sosmode = 0;
+                    lmode = 1;
+                }
+
+            });
+
+            $("#soslist").click(function (e) {
+                changeColor("#soslist");
+                if (sosmode == undefined || sosmode == 0) {
+                    removeList();
+                    $l.css('height', divheight + 'px');
+                    for (var i = 0; i < Json_Data.SortedSetCount; i++) {
+                        //$l.append('<a class="keys" href="#">' + Json_Data.SortedSetList[i] + '</a>&nbsp;&nbsp;');
+                        $l.append('' + (i + 1) + '. <a class="keys" href="#">' + Json_Data.SortedSetList[i] + '</a><br>');
+                    }
+                    $("a.keys").click(function (e) {
+                        fstitem = ""; lstitem = ""; pageno = 1;
+                        var i = $("a.keys").index(this);
+                        $nameofkey = Json_Data.SortedSetList[i];
+                        hideList();
+                        hideTags();
+                        Viewer.getkey(showListTable, 3, Json_Data.SortedSetList[i], [$itemsize, fieldsizeleft, fieldsizepast], fstitem, lstitem);
+                    });
+                    smode = hmode = lmode = 0;
+                    sosmode = 1;
+                }
+            });
+
+        };
+        function hideTable() {
+            //$('#content').fadeOut(100);
+            var x = '#list'
+            $('#content').find("table").children().remove();
+            $(x).children().remove();
+            $(x).html("").height(0);
+            $i.html("");
+            //$('#content').fadeIn(400);
+
+
+        };
+        function showListTable(Json_Data, type) {
+            $c.css('height', divheight + 'px');
+            $f.css('height', '400px');
+
+            switch (type) {
+                case 0: $f.append('<a href="#">Name Of Key</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#"> ' + $nameofkey + ' </a>&nbsp;&nbsp;<a class="edit" href="#">Edit Key</a>&nbsp;<a class="delete" href="#">Delete Key</a>&nbsp;&nbsp;</td></tr><br />');
+                    $f.append('<tr><td>Key</td><td>Value</td></tr>');
+                    $f.append('<tr><td>' + Json_Data.Keyname + '&nbsp;&nbsp;</td><td>' + Json_Data.Keyvalue + '&nbsp;&nbsp;</td><td>&nbsp;&nbsp;<a class="edit" href="#">Edit</a>&nbsp;<a class="delete" href="#">Delete</a>&nbsp;&nbsp;</td></tr>');
+                    $typeofkey = 0;
+                    break;
+                case 1: $f.append('<a href="#">Name Of Key</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#"> ' + $nameofkey + ' </a>&nbsp;&nbsp;<a class="edit" href="#">Edit</a>&nbsp;<a class="delete" href="#">Delete</a>&nbsp;&nbsp;</td></tr><br />');
+                    $f.append('<a>Number of Elements</a>&nbsp;&nbsp;&nbsp;&nbsp;<a>' + Json_Data.FieldSize + '</a>')
+                    $f.append('<tr><td>Field</td><td>Value</td></tr>');
+                    for (var i = 0; i < Json_Data.Size; i++) {
+                        $f.append('<tr><td>' + Json_Data.Field[i] + '</td><td>' + Json_Data.Value[i] + '&nbsp;&nbsp;</td><td>&nbsp;&nbsp;<a class="edit" href="#">Edit</a>&nbsp;<a class="delete" href="#">Delete</a>&nbsp;&nbsp;</td></tr>');
+                    };                   
+                    $typeofkey = 1;
+                    $lastpagesize = Json_Data.FieldSize % $itemsize;
+                    showNewTable(Json_Data);
+                    
+                    break;
+                case 2: $f.append('<a href="#">Name Of Key</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#"> ' + $nameofkey + ' </a>&nbsp;&nbsp;<a class="edit" href="#">Edit Key</a>&nbsp;<a class="delete" href="#">Delete Key</a>&nbsp;&nbsp;</td></tr><br />');
+                    $f.append('<a>Number of Elements</a>&nbsp;&nbsp;&nbsp;&nbsp;<a>' + Json_Data.FieldSize + '</a>')
+                    $f.append('<tr><td>Key</td><td>Value</td></tr>');
+                    for (var i = 0; i < Json_Data.Size; i++) {
+                        $f.append('<tr><td>' + Json_Data.Field[i] + '</td><td>' + Json_Data.Value[i] + '&nbsp;&nbsp;</td><td>&nbsp;&nbsp;<a class="edit" href="#">Edit</a>&nbsp;<a class="delete" href="#">Delete</a>&nbsp;&nbsp;</td></tr>');
+                    };
+                    $typeofkey = 2;
+                    showNewTable(Json_Data);
+                    break;
+                case 3: $f.append('<a href="#">Name Of Key</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#"> ' + $nameofkey + ' </a>&nbsp;&nbsp;<a class="edit" href="#">Edit Key</a>&nbsp;<a class="delete" href="#">Delete Key</a>&nbsp;&nbsp;</td></tr><br />');
+                    $f.append('<a>Number of Elements</a>&nbsp;&nbsp;&nbsp;&nbsp;<a>' + Json_Data.FieldSize + '</a>')
+                    $f.append('<tr><td>Member</td><td>Score</td></tr>');
+                    for (var i = 0; i < Json_Data.Size; i++) {
+                        $f.append('<tr><td>' + Json_Data.Member[i] + '</td><td>' + Json_Data.Score[i] + '&nbsp;&nbsp;</td><td>&nbsp;&nbsp;<a class="edit" href="#">Edit</a>&nbsp;<a class="delete" href="#">Delete</a>&nbsp;&nbsp;</td></tr>');
+                    };
+                    $lastpagesize = Json_Data.FieldSize % $itemsize;
+
+                    $typeofkey = 3;
+                    fieldsizeleft = Json_Data.FieldSizeLeft;
+                    fieldsizepast = Json_Data.FieldSizePast;
+                    showNewTable(Json_Data);
+                    break;
+            }
+            $('a.edit').bind('click', function (e) {                
+                var p = $(this).parents('tr').children('td');
+                req();
+                               
+                if ($(this).text().trim() === "Edit") {
+                    $args[0] = $nameofkey;
+                    $args[1] = $(p[0]).text().trim();
+                    alert(JSON.stringify($args));
+                }
+                if ($(this).text().trim() === "Save") {
+                    Viewer.request(edit, this, $req, $args);
+                    $args = [];
+                    $req = $cmd[1][0];
+                    $args[0] = $nameofkey;                    
+                    $args[1] = ($(p[0]).children('input').text().trim());
+                    $args[2] = ($(p[1]).children('input').text().trim());
+                    alert(JSON.stringify($args));
+                }
+                
+                var r = confirm("Proceed to " + $(this).text().trim() + " this item?");
+                ($(this).text().trim() === "Edit") && (r) ? edit(this) : Viewer.request(save, this, $req, $args);
+                
+            });
+            $('a.delete').bind('click', function (e) {
+                $args = [];
+                var p = $(this).parents('tr').children('td');
+                $req = $cmd[1][2];
+                $args[0] = $nameofkey;
+                $args[1] = $(p[0]).text().trim();                
+                var r = confirm("Proceed to delete this item?");
+                (r) ? Viewer.request(deleteitem, this, $req, $args) : null;//deleteitem(this)//$(this).html() === "Edit" ? edit(this) : save(this);
+                
+            });
+        };
+        function hideList() {
+            $l.children().hide();
+            $l.hide();
+            $i.children().hide();
+            $c.show();
+            $f.fadeIn(500);
+        };
+        function hideTags() {
+            //$('#view,#refresh, #delete').hide();
+            $c.prepend('<a id="back" href="#"> Back </a>');
+
+            $('#back').click(function (e) {
+                $f.fadeOut(500);
+                $f.children().remove();
+                $f.html("");
+                $c.find('a').remove();
+                $c.find('pre').remove();
+                //$c.height("0px");
+                $c.hide();
+                $i.fadeIn(400);
+                $i.children().show();
+                $l.children().show();
+                $l.show();
+                //$('#view,#refresh, #delete').show();
+                firstviewmode = 0; $itemsize = 20; fieldsizepast = 0; fieldsizeleft = 20;
+            });
+        };
+        function removeList() {
+            $l.children().remove();
+            $l.html("");
+        };
+        function showNewTable(Json_Data) {
+
+            if (firstviewmode === undefined || firstviewmode === 0) {
+                firstviewmode = 1;
+
+                $c.append('<a id="prev" href="#" style="white-space:pre"><< Previous</a>      ');
+                $c.append('<a id="next" href="#">Next >></a>');
+
+                $("#prev").click(function (e) {
+                    lstitem = "";
+                    pageno = pageno - 1;
+                    $f.fadeOut(200);
+                    $f.children().remove();
+                    $f.html("");
+                    $f.fadeIn(100);
+
+                    Viewer.getkey(showListTable, $typeofkey, Json_Data.Keyname, [$itemsize, fieldsizeleft, fieldsizepast], fstitem, lstitem);
+
+                });
+                $("#next").click(function (e) {
+                    fstitem = "";
+                    pageno = pageno + 1;
+                    $f.fadeOut(200);
+                    $f.children().remove();
+                    $f.html("");
+                    $f.fadeIn(100);
+
+                    if (pageno == pagecount) {
+                        $itemsize = $lastpagesize;
+                    }
+                    Viewer.getkey(showListTable, $typeofkey, Json_Data.Keyname, [$itemsize, fieldsizeleft, fieldsizepast], fstitem, lstitem);
+                    $itemsize = 20;
+                });
+            }
+
+            pagecount = Math.ceil(Json_Data.FieldSize / $itemsize);
+
+
+            if (smode == 1) {
+                lstitem = Json_Data.Value[Json_Data.Size - 1]; fstitem = Json_Data.Value[0];
+
+            }
+
+            if (hmode == 1) {
+                lstitem = Json_Data.Field[Json_Data.Size - 1]; fstitem = Json_Data.Field[0];
+
+            }
+            if (lmode == 1) {
+
+            }
+            if (sosmode == 1) {
+                lstitem = Json_Data.Member[Json_Data.Size - 1]; fstitem = Json_Data.Member[0];
+
+            }
+
+            if (pageno == 1) {
+                $("#prev").hide();
+            }
+            else {
+                $("#prev").show();
+            }
+            if (pageno == pagecount) {
+                $("#next").hide();
+
+            }
+            else {
+                $("#next").show();
+            }
+        };
+        function changeColor(id) {
+            var comp = function (a, b, c, d) {
+                $("#slist").css('background-color', a);
+                $("#hlist").css('background-color', b);
+                $("#lkeys").css('background-color', c);
+                $("#soslist").css('background-color', d);
+            }
+            if (id === "#slist") {
+                comp('#CEC7C7', '#eee', '#eee', '#eee');
+            }
+            if (id === "#hlist") {
+                comp('#eee', '#CEC7C7', '#eee', '#eee');
+            }
+            if (id === "#lkeys") {
+                comp('#eee', '#eee', '#CEC7C7', '#eee');
+            }
+            if (id === "#soslist") {
+                comp('#eee', '#eee', '#eee', '#CEC7C7');
+            }
+        }
+        function onaddedConnection() {
+            $("#exclusive").append('<input class = "ssdb" type = "radio" name=' + 'sname'  +  ' value='+ $('#sname').val() +'/>&nbsp;&nbsp;' + $('#sname').val() + '<br/>');
+            $("input:radio.ssdb").bind("change", function (e) {
+                $(this).data("index", parseInt($(this).index() - 1));
+                sindex = parseInt($(this).index()/ 2);
+                
+            });
+        }
+        function edit(e)
+        {
+            var p = $(e).parents('tr').children('td');
+            var field = $(p[0]).text().trim();
+            var value = $(p[1]).text().trim();            
+            (field)? null : function () {  field = ($(p[0]).children('input').val());}
+            (value)? null:value = ($(p[1]).children('input').val());
+            ($(p[0]).html("<input type='text' value='" + field + "'/>"));
+            ($(p[1]).html("<input type='text' value='" + value + "'/>"));
+            $(e).html("Save");
+        }
+        function save(e)
+        {
+            var p = $(e).parents('tr').children('td');
+            var field = ($(p[0]).children('input').val());
+            var value = ($(p[1]).children('input').val());            
+            ($(p[0]).html("<td>" + field + "</td>"));
+            ($(p[1]).html("<td>" + value + "</td>"));
+            $(e).html("Edit");
+        }
+        function deleteitem(e){
+            var p = $(e).parents('tr').children('td');
+            $(p[0]).remove();
+            $(p[1]).remove();
+            $(p[2]).remove();
+        }
+        function req() {
+            (smode) ? $req = $cmd[0][7] : null;
+            (hmode) ? $req = $cmd[1][2] : null;
+            (sosmode) ? $req = $cmd[2][2] : null;
+
+        }
+    </script>
+    @*<div style="margin-top:17%;"><textarea style="height:200px; width:100%; position:static;"></textarea></div>*@
+</body>
+</html>
